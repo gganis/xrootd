@@ -61,7 +61,6 @@ extern "C" {
 #include "XrdSys/XrdSysPwd.hh"
 #include "XrdOuc/XrdOucTokenizer.hh"
 #include "XrdSec/XrdSecInterface.hh"
-#include "XrdSys/XrdSysPriv.hh"
   
 /******************************************************************************/
 /*                               D e f i n e s                                */
@@ -483,21 +482,17 @@ int XrdSecProtocolkrb5::Authenticate(XrdSecCredentials *cred,
 
 // Decode the credentials and extract client's name
 //
-   {  XrdSysPrivGuard pGuard(krb_kt_uid, krb_kt_gid);
-      if (pGuard.Valid())
-         {if (!rc)
-             {if ((rc = krb5_rd_req(krb_context, &AuthContext, &inbuf,
-                                  (krb5_const_principal)krb_principal,
-                                   krb_keytab, NULL, &Ticket)))
-                 iferror = (char *)"Unable to authenticate credentials;";
-              else if ((rc = krb5_aname_to_localname(krb_context,
-                                          Ticket->enc_part2->client,
-                                          sizeof(CName)-1, CName)))
-                     iferror = (char *)"Unable to extract client name;";
-             }
-      } else
-         iferror = (char *)"Unable to acquire privileges to read the keytab;";
-   }
+   if (!rc)
+      {if ((rc = krb5_rd_req(krb_context, &AuthContext, &inbuf,
+                            (krb5_const_principal)krb_principal,
+                             krb_keytab, NULL, &Ticket)))
+           iferror = (char *)"Unable to authenticate credentials;";
+       else if ((rc = krb5_aname_to_localname(krb_context,
+                                  Ticket->enc_part2->client,
+                                  sizeof(CName)-1, CName)))
+             iferror = (char *)"Unable to extract client name;";
+      }
+
 // Make sure the name is null-terminated
 //
    CName[sizeof(CName)-1] = '\0';
@@ -829,12 +824,6 @@ int XrdSecProtocolkrb5::exp_krbTkn(XrdSecCredentials *cred, XrdOucErrInfo *erp)
     krb5_ccache cache = 0;
     if ((rc = krb5_cc_resolve(krb_context, ccfile, &cache)))
        return rc;
-
-// Need privileges from now on
-//
-    XrdSysPrivGuard pGuard((uid_t)0, (gid_t)0);
-    if (!pGuard.Valid())
-       return Fatal(erp, EINVAL, "Unable to acquire privileges;", ccfile, 0);
 
 // Init cache
 //
