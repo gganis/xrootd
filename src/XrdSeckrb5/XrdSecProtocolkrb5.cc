@@ -151,8 +151,6 @@ static krb5_context       krb_client_context;   // Client
 static krb5_ccache        krb_client_ccache;    // Client 
 static krb5_ccache        krb_ccache;    // Server
 static krb5_keytab        krb_keytab;    // Server
-static uid_t              krb_kt_uid;// Server
-static gid_t              krb_kt_gid;// Server
 static krb5_principal     krb_principal; // Server
 
 static char              *Principal;     // Server's principal name
@@ -187,8 +185,6 @@ krb5_context        XrdSecProtocolkrb5::krb_client_context;       // Client
 krb5_ccache         XrdSecProtocolkrb5::krb_client_ccache; // Client
 krb5_ccache         XrdSecProtocolkrb5::krb_ccache;        // Server
 krb5_keytab         XrdSecProtocolkrb5::krb_keytab = NULL; // Server
-uid_t               XrdSecProtocolkrb5::krb_kt_uid = 0;    // Server
-gid_t               XrdSecProtocolkrb5::krb_kt_gid = 0;    // Server
 krb5_principal      XrdSecProtocolkrb5::krb_principal;     // Server
 
 char               *XrdSecProtocolkrb5::Principal = 0;     // Server
@@ -580,21 +576,15 @@ int XrdSecProtocolkrb5::Init(XrdOucErrInfo *erp, char *KP, char *kfn)
        return Fatal(erp, ESRCH, buff, Principal, rc);
       }
 
-// Find out if need to acquire privileges to open and read the keytab file and
-// set the required uid,gid accordingly
+// Check if we can read access the keytab file
 //
-   krb_kt_uid = geteuid();
-   krb_kt_gid = getegid();
    char *pf = 0;
    if ((pf = (char *) strstr(krb_kt_name, "FILE:")))
       {pf += strlen("FILE:");
        if (strlen(pf) > 0)
-          {struct stat st;
-           if (!stat(pf, &st))
-              {if (st.st_uid != krb_kt_uid || st.st_gid != krb_kt_gid)
-                  {krb_kt_uid = st.st_uid;
-                   krb_kt_gid = st.st_gid;
-                  }
+          {if (access(pf, R_OK))
+              {snprintf(buff, sizeof(buff), "Unable to access the keytab file %s", pf);
+               return Fatal(erp, EPERM, buff, Principal, rc);
               }
           }
       }
