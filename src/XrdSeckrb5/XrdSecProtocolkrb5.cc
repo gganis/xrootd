@@ -578,15 +578,14 @@ int XrdSecProtocolkrb5::Init(XrdOucErrInfo *erp, char *KP, char *kfn)
 
 // Check if we can read access the keytab file
 //
-   char *pf = 0;
-   if ((pf = (char *) strstr(krb_kt_name, "FILE:")))
-      {pf += strlen("FILE:");
-       if (strlen(pf) > 0)
-          {if (access(pf, R_OK))
-              {snprintf(buff, sizeof(buff), "Unable to access the keytab file %s", pf);
-               return Fatal(erp, EPERM, buff, Principal, rc);
-              }
-          }
+   krb5_kt_cursor ktc;
+   if ((rc = krb5_kt_start_seq_get(krb_context, krb_keytab, &ktc)))
+      {snprintf(buff, sizeof(buff), "Unable to start sequence on the keytab file %s", krb_kt_name);
+       return Fatal(erp, EPERM, buff, Principal, rc);
+      }
+   if ((rc = krb5_kt_end_seq_get(krb_context, krb_keytab, &ktc)))
+      {snprintf(buff, sizeof(buff), "WARNING: unable to end sequence on the keytab file %s", krb_kt_name);
+       CLPRT(buff);
       }
 
 // Now, extract the "principal/instance@realm" from the stream
