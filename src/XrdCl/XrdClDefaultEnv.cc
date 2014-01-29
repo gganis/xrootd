@@ -172,6 +172,11 @@ namespace XrdCl
     PutString( "AppName", appName );
     free( tmp );
 
+    char *tmp = strdup( XrdSysUtils::ExecName() );
+    char *appName = basename( tmp );
+    PutString( "AppName", appName );
+    free( tmp );
+
     ImportInt(    "ConnectionWindow",     "XRD_CONNECTIONWINDOW"     );
     ImportInt(    "ConnectionRetry",      "XRD_CONNECTIONRETRY"      );
     ImportInt(    "RequestTimeout",       "XRD_REQUESTTIMEOUT"       );
