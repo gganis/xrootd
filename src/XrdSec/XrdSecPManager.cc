@@ -141,7 +141,8 @@ XrdSecProtocol *XrdSecPManager::Get(const char       *hname,
    char pcomp[XrdSecPROTOIDSIZE+4], *compProt;
    XrdSecProtList *pl;
    XrdSecProtocol *pp;
-   XrdOucErrInfo  *erp = (eri) ? eri : new XrdOucErrInfo();
+   XrdOucErrInfo   ei;
+   XrdOucErrInfo  *erp = (eri) ? eri : &ei;
    int i;
 
 // We support passing the list of protocols via Url parameter
