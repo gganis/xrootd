@@ -29,10 +29,15 @@
 #include "XrdCl/XrdClPlugInManager.hh"
 #include "XrdSys/XrdSysPlugin.hh"
 #include "XrdSys/XrdSysUtils.hh"
+#include "XrdSys/XrdSysPwd.hh"
 
 #include <libgen.h>
 #include <cstring>
 #include <map>
+#include <vector>
+#include <algorithm>
+#include <cctype>
+#include <string>
 #include <pthread.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -122,7 +127,25 @@ namespace
 
     std::map<std::string, uint64_t> masks;
   };
+
+  //----------------------------------------------------------------------------
+  // Helper for handling environment variables
+  //----------------------------------------------------------------------------
+  template<typename Item>
+  struct EnvVarHolder
+  {
+    EnvVarHolder( const std::string &name_, const Item &def_ ):
+      name( name_ ), def( def_ ) {}
+    std::string name;
+    Item        def;
+  };
 }
+
+#define REGISTER_VAR_INT( array, name,  def ) \
+    array.push_back( EnvVarHolder<int>( name, def ) )
+
+#define REGISTER_VAR_STR( array, name,  def ) \
+    array.push_back( EnvVarHolder<std::string>( name, def ) )
 
 namespace XrdCl
 {
@@ -147,29 +170,78 @@ namespace XrdCl
   //----------------------------------------------------------------------------
   DefaultEnv::DefaultEnv()
   {
-    PutInt( "ConnectionWindow",      DefaultConnectionWindow     );
-    PutInt( "ConnectionRetry",       DefaultConnectionRetry      );
-    PutInt( "RequestTimeout",        DefaultRequestTimeout       );
-    PutInt( "StreamTimeout",         DefaultStreamTimeout       );
-    PutInt( "SubStreamsPerChannel",  DefaultSubStreamsPerChannel );
-    PutInt( "TimeoutResolution",     DefaultTimeoutResolution    );
-    PutInt( "StreamErrorWindow",     DefaultStreamErrorWindow    );
-    PutInt( "RunForkHandler",        DefaultRunForkHandler       );
-    PutInt( "RedirectLimit",         DefaultRedirectLimit        );
-    PutInt( "WorkerThreads",         DefaultWorkerThreads        );
-    PutInt( "CPChunkSize",           DefaultCPChunkSize          );
-    PutInt( "CPParallelChunks",      DefaultCPParallelChunks     );
-    PutInt( "DataServerTTL",         DefaultDataServerTTL        );
-    PutInt( "LoadBalancerTTL",       DefaultLoadBalancerTTL      );
-    PutInt( "CPInitTimeout",         DefaultCPInitTimeout        );
-    PutInt( "CPTPCTimeout",          DefaultCPTPCTimeout         );
-    PutString( "PollerPreference",   DefaultPollerPreference     );
-    PutString( "ClientMonitor",      DefaultClientMonitor        );
-    PutString( "ClientMonitorParam", DefaultClientMonitorParam   );
-    PutString( "NetworkStack",       DefaultNetworkStack         );
-    PutString( "PlugInConfDir",      DefaultPlugInConfDir        );
-    PutString( "PlugIn",             DefaultPlugIn               );
+    Log *log = GetLog();
 
+    //--------------------------------------------------------------------------
+    // Declate the variables to be processed
+    //--------------------------------------------------------------------------
+    std::vector<EnvVarHolder<int> >         varsInt;
+    std::vector<EnvVarHolder<std::string> > varsStr;
+    REGISTER_VAR_INT( varsInt, "ConnectionWindow",     DefaultConnectionWindow     );
+    REGISTER_VAR_INT( varsInt, "ConnectionRetry",      DefaultConnectionRetry      );
+    REGISTER_VAR_INT( varsInt, "RequestTimeout",       DefaultRequestTimeout       );
+    REGISTER_VAR_INT( varsInt, "StreamTimeout",        DefaultStreamTimeout        );
+    REGISTER_VAR_INT( varsInt, "SubStreamsPerChannel", DefaultSubStreamsPerChannel );
+    REGISTER_VAR_INT( varsInt, "TimeoutResolution",    DefaultTimeoutResolution    );
+    REGISTER_VAR_INT( varsInt, "StreamErrorWindow",    DefaultStreamErrorWindow    );
+    REGISTER_VAR_INT( varsInt, "RunForkHandler",       DefaultRunForkHandler       );
+    REGISTER_VAR_INT( varsInt, "RedirectLimit",        DefaultRedirectLimit        );
+    REGISTER_VAR_INT( varsInt, "WorkerThreads",        DefaultWorkerThreads        );
+    REGISTER_VAR_INT( varsInt, "CPChunkSize",          DefaultCPChunkSize          );
+    REGISTER_VAR_INT( varsInt, "CPParallelChunks",     DefaultCPParallelChunks     );
+    REGISTER_VAR_INT( varsInt, "DataServerTTL",        DefaultDataServerTTL        );
+    REGISTER_VAR_INT( varsInt, "LoadBalancerTTL",      DefaultLoadBalancerTTL      );
+    REGISTER_VAR_INT( varsInt, "CPInitTimeout",        DefaultCPInitTimeout        );
+    REGISTER_VAR_INT( varsInt, "CPTPCTimeout",         DefaultCPTPCTimeout         );
+
+    REGISTER_VAR_STR( varsStr, "PollerPreference",     DefaultPollerPreference     );
+    REGISTER_VAR_STR( varsStr, "ClientMonitor",        DefaultClientMonitor        );
+    REGISTER_VAR_STR( varsStr, "ClientMonitorParam",   DefaultClientMonitorParam   );
+    REGISTER_VAR_STR( varsStr, "NetworkStack",         DefaultNetworkStack         );
+    REGISTER_VAR_STR( varsStr, "PlugIn",               DefaultPlugIn               );
+    REGISTER_VAR_STR( varsStr, "PlugInConfDir",        DefaultPlugInConfDir        );
+
+    //--------------------------------------------------------------------------
+    // Process the configuration files
+    //--------------------------------------------------------------------------
+    std::map<std::string, std::string> config, userConfig;
+    Status st = Utils::ProcessConfig( config, "/etc/xrootd/client.conf" );
+
+    if( !st.IsOK() )
+      log->Warning( UtilityMsg, "Unable to process global config file: %s",
+                    st.ToString().c_str() );
+
+    XrdSysPwd pwdHandler;
+    passwd *pwd = pwdHandler.Get( getuid() );
+    std::string userConfigFile = pwd->pw_dir;
+    userConfigFile += "/.xrootd/client.conf";
+
+    st = Utils::ProcessConfig( userConfig, userConfigFile );
+
+    if( !st.IsOK() )
+      log->Debug( UtilityMsg, "Unable to process user config file: %s",
+                  st.ToString().c_str() );
+
+    std::map<std::string, std::string>::iterator it;
+
+    for( it = config.begin(); it != config.end(); ++it )
+      log->Dump( UtilityMsg, "[Global config] \"%s\" = \"%s\"",
+                 it->first.c_str(), it->second.c_str() );
+
+    for( it = userConfig.begin(); it != userConfig.end(); ++it )
+    {
+      config[it->first] = it->second;
+      log->Dump( UtilityMsg, "[User config] \"%s\" = \"%s\"",
+                 it->first.c_str(), it->second.c_str() );
+    }
+
+    for( it = config.begin(); it != config.end(); ++it )
+      log->Debug( UtilityMsg, "[Effective config] \"%s\" = \"%s\"",
+                  it->first.c_str(), it->second.c_str() );
+
+    //--------------------------------------------------------------------------
+    // Apply the settings
+    //--------------------------------------------------------------------------
     char *tmp = strdup( XrdSysUtils::ExecName() );
     char *appName = basename( tmp );
     PutString( "AppName", appName );
