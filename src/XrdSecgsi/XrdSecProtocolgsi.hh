@@ -30,10 +30,12 @@
 #include "XrdNet/XrdNetAddrInfo.hh"
 
 #include "XrdOuc/XrdOucErrInfo.hh"
+#include "XrdOuc/XrdOucGMap.hh"
 #include "XrdOuc/XrdOucHash.hh"
-#include "XrdSys/XrdSysPthread.hh"
 #include "XrdOuc/XrdOucString.hh"
 #include "XrdOuc/XrdOucTokenizer.hh"
+
+#include "XrdSys/XrdSysPthread.hh"
 
 #include "XrdSec/XrdSecInterface.hh"
 #include "XrdSecgsi/XrdSecgsiTrace.hh"
@@ -152,6 +154,7 @@ typedef XrdSecgsiAuthzInit_t XrdSecgsiVOMSInit_t;
 //
 // This a small class to set the relevant options in one go
 //
+class XrdOucGMap;
 class XrdOucTrace;
 class gsiOptions {
 public:
@@ -356,6 +359,9 @@ private:
    static XrdSutCache      cacheGMAPFun; // Cache for entries mapped by GMAPFun
    static XrdSutCache      cacheAuthzFun; // Cache for entities filled by AuthzFun
    //
+   // Services
+   static XrdOucGMap      *servGMap;  // Grid mapping service 
+   //
    // CRL stack
    static GSICrlStack      stackCRL; // Stack of CRL in use
    //
@@ -456,7 +462,6 @@ private:
                                 XrdSutBuffer *bls, XrdSutBuffer *buf,
                                 kXR_int32 type, XrdCryptoCipher *cip);
    // Grid map cache handling
-   static int     LoadGMAP(int now); // Init or refresh the cache
    static XrdSecgsiGMAP_t            // Load alternative function for mapping
                   LoadGMAPFun(const char *plugin, const char *parms);
    static XrdSecgsiAuthz_t           // Load alternative function to fill XrdSecEntity
