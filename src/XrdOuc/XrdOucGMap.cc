@@ -100,7 +100,7 @@ XrdOucGMap *XrdOucgetGMap(XrdOucGMapArgs)
 // Constructor
 //
 XrdOucGMap::XrdOucGMap(XrdOucGMapArgs)
-          : valid(0), mf_mtime(-1), notafter(-1), duration(-1), elogger(eDest), tracer(0), dbg(0)
+          : valid(0), mf_mtime(-1), notafter(-1), timeout(600), elogger(eDest), tracer(0), dbg(0)
 {
    // Set tracer
    //
@@ -118,14 +118,17 @@ XrdOucGMap::XrdOucGMap(XrdOucGMapArgs)
          } else if (p.beginswith("to=")) {
             p.erasefromstart(3);
             if (p.isdigit()) {
-               duration = p.atoi();
-               if (duration > 0) notafter = time(0) + (time_t) duration;
+               timeout = p.atoi();
             } else {
                PRINT(tracer, "XrdOucGMap", "timeout value badly formatted ("<<p<<"): ignoring");
             }
          }
       }
-   } 
+   }
+
+   // Set notafter is timeout is active
+   //
+   if (timeout > 0) notafter = time(0) + (time_t) timeout;
 
    // Set the file name
    //
@@ -167,6 +170,8 @@ int XrdOucGMap::load(const char *mf, bool force)
    struct stat st;
    if (stat(mf_name.c_str(), &st) != 0) {
       PRINT(tracer, "XrdOucGMap::load", "cannot access grid map file; errno: "<<errno<<" - aborting");
+      // Delete the stored information if the file has been deleted
+      if (errno == ENOENT) mappings.Purge();
       xsl.UnLock();
       return -1;
    }
@@ -278,12 +283,12 @@ int XrdOucGMap::dn2user(const char *dn, char *user, int ulen, time_t now)
       if (now <= 0) now = time(0);
       if (notafter < now) {
          // Reload the file
-         if (load(mf_name.c_str(), 1) != 0) {
+         if (load(mf_name.c_str()) != 0) {
             PRINT(tracer, "XrdOucGMap::dn2user", "problems loading file "<<mf_name);
             return -1;
          }
       }
-      if (duration > 0) notafter = now + (time_t) duration;
+      if (timeout > 0) notafter = now + (time_t) timeout;
    }
   
    // A shared lock is enough
@@ -296,14 +301,16 @@ int XrdOucGMap::dn2user(const char *dn, char *user, int ulen, time_t now)
    //
    if ((mc = mappings.Find(dn))) {
       // Save the associated user
-      strncpy(user, mc->val.c_str(), ulen);
+      strncpy(user, mc->user.c_str(), ulen);
+      user[ulen-1] = 0;
    } else {
       // Else scan the available mappings
       //
       mc = new XrdSecGMapEntry_t(dn, "", kFull);
       mappings.Apply(FindMatchingCondition, (void *)mc);
       if (mc->user.length() > 0) {
-         strncpy(user, mc->val.c_str(), ulen);
+         strncpy(user, mc->user.c_str(), ulen);
+         user[ulen-1] = 0;
       }
    }
    if (strlen(user)) {

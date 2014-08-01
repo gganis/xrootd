@@ -76,6 +76,14 @@ virtual int  dn2user(const char *dn, char *user, int ulen, time_t now = 0);
 //!                  may be null; the default path will be tested then.
 //! @param  parms -> Argument string specified on the gridmap directive. It may
 //!                  be null or point to a null string if no parms exist.
+//!                  Curently supported parms:
+//!                        dbg 	        to enable debug printouts
+//!                        to=timeout   to set a timeout in secs on the validity
+//!                                     of the information loaded from the file
+//!                                     Default is 600 (10'); the reload is
+//!                                     triggered by the first mapping request
+//!                                     after the timeout is expired; the file is
+//!                                     reloaded only if changed.
 //!
 //------------------------------------------------------------------------------
 #define XrdOucGMapArgs XrdSysError       *eDest, \
@@ -105,7 +113,7 @@ XrdOucHash<XrdSecGMapEntry_t> mappings;
 XrdOucString				  mf_name;
 time_t						  mf_mtime;
 time_t                        notafter;
-long                          duration;
+long                          timeout;
 
 XrdSysError                  *elogger;
 XrdOucTrace                  *tracer;

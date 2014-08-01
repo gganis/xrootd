@@ -2532,7 +2532,7 @@ char *XrdSecProtocolgsiInit(const char mode,
       int crl = 1;
       int crlrefresh = 86400;
       int ogmap = 1;
-      int gmapto = -1;
+      int gmapto = 600;
       int authzto = -1;
       int dlgpxy = 0;
       int authzpxy = 0;

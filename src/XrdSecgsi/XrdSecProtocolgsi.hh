@@ -178,7 +178,7 @@ public:
    int    deplen; // [c] depth of signature path for proxies [0] 
    int    bits;   // [c] bits in PKI for proxies [512] 
    char  *gridmap;// [s] gridmap file [/etc/grid-security/gridmap]
-   int    gmapto; // [s] validity in secs of grid-map cache entries [-1 => unlimited]
+   int    gmapto; // [s] validity in secs of grid-map cache entries [600 s]
    char  *gmapfun;// [s] file with the function to map DN to usernames [0]
    char  *gmapfunparms;// [s] parameters for the function to map DN to usernames [0]
    char  *authzfun;// [s] file with the function to fill entities [0]
@@ -202,7 +202,7 @@ public:
                   certdir = 0; crldir = 0; crlext = 0; cert = 0; key = 0;
                   cipher = 0; md = 0; ca = 1 ; crl = 1; crlrefresh = 86400;
                   proxy = 0; valid = 0; deplen = 0; bits = 512;
-                  gridmap = 0; gmapto = -1;
+                  gridmap = 0; gmapto = 600;
                   gmapfun = 0; gmapfunparms = 0; authzfun = 0; authzfunparms = 0; authzto = -1;
                   ogmap = 1; dlgpxy = 0; sigpxy = 1; srvnames = 0;
                   exppxy = 0; authzpxy = 0;
