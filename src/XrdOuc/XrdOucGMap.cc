@@ -175,7 +175,7 @@ int XrdOucGMap::load(const char *mf, bool force)
       xsl.UnLock();
       return -1;
    }
-   if (mf_mtime > 0 && (mf_mtime >= st.st_mtime) && !force) {
+   if (mf_mtime > 0 && (mf_mtime >= st.st_mtim.tv_sec) && !force) {
       DEBUG(dbg, tracer, "XrdOucGMap::load", "map information up-to-date: no need to load");
       xsl.UnLock();
       return 0;
@@ -265,7 +265,7 @@ int XrdOucGMap::load(const char *mf, bool force)
 
    // Store the modification time
    //
-   mf_mtime = st.st_mtime;
+   mf_mtime = st.st_mtim.tv_sec;
 
    // Done
    xsl.UnLock();
@@ -287,8 +287,8 @@ int XrdOucGMap::dn2user(const char *dn, char *user, int ulen, time_t now)
             PRINT(tracer, "XrdOucGMap::dn2user", "problems loading file "<<mf_name);
             return -1;
          }
+         if (timeout > 0) notafter = now + (time_t) timeout;
       }
-      if (timeout > 0) notafter = now + (time_t) timeout;
    }
   
    // A shared lock is enough
