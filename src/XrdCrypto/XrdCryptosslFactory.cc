@@ -40,6 +40,7 @@
 #include "XrdCrypto/XrdCryptosslX509.hh"
 #include "XrdCrypto/XrdCryptosslX509Crl.hh"
 #include "XrdCrypto/XrdCryptosslX509Req.hh"
+#include "XrdCrypto/XrdCryptosslPxyMgr.hh"
 
 #include "XrdSys/XrdSysLogger.hh"
 #include "XrdSys/XrdSysError.hh"
@@ -401,6 +402,14 @@ XrdCryptoX509Req *XrdCryptosslFactory::X509Req(XrdSutBucket *b)
          delete x509Req;
    }
    return (XrdCryptoX509Req *)0;
+}
+
+//______________________________________________________________________________
+XrdCryptoPxyMgr *XrdCryptosslFactory::PxyMgr()
+{
+   // Return an instance of a ssl implementation of XrdCryptoPxyMgr.
+
+   return new XrdCryptosslPxyMgr();
 }
 
 //______________________________________________________________________________

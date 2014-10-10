@@ -251,6 +251,15 @@ XrdCryptoX509Req *XrdCryptoFactory::X509Req(XrdSutBucket *)
 }
 
 //______________________________________________________________________________
+XrdCryptoPxyMgr *XrdCryptoFactory::PxyMgr()
+{
+   // Return an instance of an implementation of XrdCryptoPxyMgr.
+
+   ABSTRACTMETHOD("XrdCryptoFactory::PxyMgr");
+   return 0;
+}
+
+//______________________________________________________________________________
 XrdCryptoX509VerifyCert_t XrdCryptoFactory::X509VerifyCert()
 {
    // Return an instance of an implementation of a verification

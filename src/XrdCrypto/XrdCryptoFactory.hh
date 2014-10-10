@@ -53,6 +53,7 @@ class XrdCryptoX509;
 class XrdCryptoX509Chain;
 class XrdCryptoX509Crl;
 class XrdCryptoX509Req;
+class XrdCryptoPxyMgr;
 
 //
 // Prototypes for some Utility Functions
@@ -135,6 +136,9 @@ public:
 
    // X509 REQ constructors
    virtual XrdCryptoX509Req *X509Req(XrdSutBucket *bck);
+
+   // Proxy manager constructor
+   virtual XrdCryptoPxyMgr *PxyMgr();
 
    // Hooks to handle X509 certificates
    virtual XrdCryptoX509VerifyCert_t X509VerifyCert();

@@ -57,8 +57,8 @@
 #include "XrdCrypto/XrdCryptoX509Chain.hh"
 #include "XrdCrypto/XrdCryptoX509Crl.hh"
 
-#include "XrdCrypto/XrdCryptosslgsiX509Chain.hh"
-#include "XrdCrypto/XrdCryptosslgsiAux.hh"
+#include "XrdCrypto/XrdCryptogsiX509Chain.hh"
+#include "XrdCrypto/XrdCryptoPxyMgr.hh"
 
 #include "XrdSecgsi/XrdSecgsiTrace.hh"
 
@@ -96,6 +96,7 @@ int          Mode     = kM_undef;
 bool         Debug = 0;
 bool         Exists = 0;
 XrdCryptoFactory *gCryptoFactory = 0;
+XrdCryptoPxyMgr *gPxyMgr = 0;
 XrdOucString CryptoMod = "ssl";
 XrdOucString CAdir  = "/etc/grid-security/certificates/";
 XrdOucString CRLdir = "/etc/grid-security/certificates/";
@@ -119,7 +120,7 @@ int main( int argc, char **argv )
    // Test implemented functionality
    int secValid = 0;
    XrdProxyOpt_t pxopt;
-   XrdCryptosslgsiX509Chain *cPXp = 0;
+   XrdCryptogsiX509Chain *cPXp = 0;
    XrdCryptoX509 *xPXp = 0, *xPXPp = 0;
    XrdCryptoRSA *kPXp = 0;
    XrdCryptoX509ParseFile_t ParseFile = 0;
@@ -159,6 +160,13 @@ int main( int argc, char **argv )
       gCryptoFactory->SetTrace(cryptoTRACE_Debug);
 
    //
+   // Get a proxy manager
+   if (!gPxyMgr && !(gPxyMgr = gCryptoFactory->PxyMgr())) {
+      PRT(": cannot get proxy manager for "<<CryptoMod);
+      exit(1);
+   }
+
+   //
    // Depending on the mode
    switch (Mode) {
    case kM_help:
@@ -173,9 +181,9 @@ int main( int argc, char **argv )
       pxopt.bits = Bits;
       pxopt.valid = secValid;
       pxopt.depthlen = PathLength;
-      cPXp = new XrdCryptosslgsiX509Chain();
-      prc = XrdSslgsiX509CreateProxy(EEcert.c_str(), EEkey.c_str(), &pxopt,
-                                     cPXp, &kPXp, PXcert.c_str());
+      cPXp = new XrdCryptogsiX509Chain();
+      prc = gPxyMgr->CreateProxy(EEcert.c_str(), EEkey.c_str(), &pxopt,
+                                cPXp, &kPXp, PXcert.c_str());
       if (prc == 0) {
          // The proxy is the first certificate
          xPXp = cPXp->Begin();
@@ -204,7 +212,7 @@ int main( int argc, char **argv )
          break;
       }
       // Parse the proxy file
-      cPXp = new XrdCryptosslgsiX509Chain();
+      cPXp = new XrdCryptogsiX509Chain();
       nci = (*ParseFile)(PXcert.c_str(), cPXp);
       if (nci < 2) {
          if (Exists) {
@@ -697,7 +705,7 @@ void Display(XrdCryptoX509 *xp)
    PRT("subject     : "<<xp->Subject());
    // Path length field
    int pathlen = 0;
-   XrdSslgsiProxyCertInfo(xp->GetExtension(gsiProxyCertInfo_OID), pathlen);
+   if (gPxyMgr) gPxyMgr->ProxyCertInfo(xp->GetExtension(gsiProxyCertInfo_OID), pathlen);
    PRT("path length : "<<pathlen);
    // Key strength
    PRT("bits        : "<<xp->BitStrength());
@@ -711,7 +719,7 @@ void Display(XrdCryptoX509 *xp)
    PRT("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
    // Show VOMS attributes, if any
    XrdOucString vatts, vat;
-   if (XrdSslgsiX509GetVOMSAttr(xp, vatts) == 0) {
+   if (gPxyMgr && gPxyMgr->GetVOMSAttr(xp, vatts) == 0) {
       int from = 0;
       while ((from = vatts.tokenize(vat, from, ',')) != -1) {
          if (vat.length() > 0) PRT("VOMS attributes: "<<vat);

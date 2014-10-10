@@ -1,10 +1,8 @@
-#ifndef __CRYPTO_SSLGSIX509CHAIN_H__
-#define __CRYPTO_SSLGSIX509CHAIN_H__
 /******************************************************************************/
 /*                                                                            */
-/*           X r d C r y p t o s s l g s i X 5 0 9 C h a i n . h h            */
+/*                  X r d C r y p t o P x y M g r . c c                       */
 /*                                                                            */
-/* (c) 2005 G. Ganis , CERN                                                   */
+/* (c) 2014, G. Ganis / CERN                                                  */
 /*                                                                            */
 /* This file is part of the XRootD software suite.                            */
 /*                                                                            */
@@ -30,36 +28,58 @@
 
 /* ************************************************************************** */
 /*                                                                            */
-/* Chain of X509 certificates following GSI policy(ies).                      */
+/* X509 Proxy functionality interface                                         */
 /*                                                                            */
 /* ************************************************************************** */
+#include "XrdCrypto/XrdCryptoAux.hh"
+#include "XrdCrypto/XrdCryptoPxyMgr.hh"
 
-#include "XrdCrypto/XrdCryptoX509Chain.hh"
+//_____________________________________________________________________________
+bool XrdCryptoPxyMgr::ProxyCertInfo(const void *, int &, bool *)
+{
+   // Check ProxyCertInfo extension
+   ABSTRACTMETHOD("XrdCryptoPxyMgr::ProxyCertInfo");
+   return false;
+}
 
-// ---------------------------------------------------------------------------//
-//                                                                            //
-// XrdCryptosslgsiX509Chain                                                   //
-//                                                                            //
-// Enforce GSI policies on X509 certificate chains                            //
-//                                                                            //
-// ---------------------------------------------------------------------------//
+//_____________________________________________________________________________
+void XrdCryptoPxyMgr::SetPathLenConstraint(void *, int)
+{
+   // Set path length constraint in proxy
+   ABSTRACTMETHOD("XrdCryptoPxyMgr::SetPathLenConstraint");
+   return;
+}
 
-const int kOptsRfc3820 = 0x1;
+//_____________________________________________________________________________
+int XrdCryptoPxyMgr::CreateProxy(const char *, const char *, XrdProxyOpt_t *,
+                                 XrdCryptogsiX509Chain *, XrdCryptoRSA **, const char *)
+{
+   // Create a proxy certificate
+   ABSTRACTMETHOD("XrdCryptoPxyMgr::CreateProxy");
+   return -1;
+}
 
-class XrdCryptosslgsiX509Chain : public XrdCryptoX509Chain {
+//_____________________________________________________________________________
+int XrdCryptoPxyMgr::CreateProxyReq(XrdCryptoX509 *, XrdCryptoX509Req **, XrdCryptoRSA **)
+{
+   // Create a proxy certificate
+   ABSTRACTMETHOD("XrdCryptoPxyMgr::CreateProxyReq");
+   return -1;
+}
 
-public:
-   XrdCryptosslgsiX509Chain(XrdCryptoX509 *c = 0) : XrdCryptoX509Chain(c) { }
-   XrdCryptosslgsiX509Chain(XrdCryptosslgsiX509Chain *c) : XrdCryptoX509Chain(c) { }
-   virtual ~XrdCryptosslgsiX509Chain() { }
+//_____________________________________________________________________________
+int XrdCryptoPxyMgr::SignProxyReq(XrdCryptoX509 *, XrdCryptoRSA *,
+                                                  XrdCryptoX509Req *, XrdCryptoX509 **)
+{
+   // Create a proxy certificate
+   ABSTRACTMETHOD("XrdCryptoPxyMgr::SignProxyReq");
+   return -1;
+}
 
-   // Verify chain
-   bool Verify(EX509ChainErr &e, x509ChainVerifyOpt_t *vopt = 0);
-
-private:
-
-   // Proxy naming rules 
-   bool SubjectOK(EX509ChainErr &e, XrdCryptoX509 *xcer);
-};
-
-#endif
+//_____________________________________________________________________________
+int XrdCryptoPxyMgr::GetVOMSAttr(XrdCryptoX509 *, XrdOucString &)
+{
+   // Create a proxy certificate
+   ABSTRACTMETHOD("XrdCryptoPxyMgr::GetVOMSAttr");
+   return -1;
+}

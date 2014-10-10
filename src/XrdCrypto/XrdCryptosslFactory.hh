@@ -89,6 +89,9 @@ public:
    // X509 REQ constructors
    XrdCryptoX509Req *X509Req(XrdSutBucket *bck);
 
+   // Proxy manager constructor
+   XrdCryptoPxyMgr *PxyMgr();
+
    // Hooks to handle X509 certificates
    XrdCryptoX509VerifyCert_t X509VerifyCert();
    XrdCryptoX509VerifyChain_t X509VerifyChain();
