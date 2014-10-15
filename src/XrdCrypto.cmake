@@ -93,6 +93,7 @@ if( BUILD_CRYPTO )
     XrdCrypto/XrdCryptosslMsgDigest.cc      XrdCrypto/XrdCryptosslMsgDigest.hh
     XrdCrypto/XrdCryptosslRSA.cc            XrdCrypto/XrdCryptosslRSA.hh
     XrdCrypto/XrdCryptosslX509.cc           XrdCrypto/XrdCryptosslX509.hh
+    XrdCrypto/XrdCryptosslX509Req.cc           XrdCrypto/XrdCryptosslX509Req.hh
     XrdCrypto/XrdCryptosslX509Crl.cc        XrdCrypto/XrdCryptosslX509Crl.hh
     XrdCrypto/XrdCryptosslTrace.hh
     XrdCrypto/XrdCryptosslFactory.cc        XrdCrypto/XrdCryptosslFactory.hh )
