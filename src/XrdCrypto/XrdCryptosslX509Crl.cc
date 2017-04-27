@@ -404,21 +404,20 @@ int XrdCryptosslX509Crl::LoadCache()
          TRACE(Dump, "certificate with serial number: "<<tagser<<
                      "  has been revoked");
          // Add to the cache
-         XrdSutPFEntry *cent = cache.Add(pfeRef, (const char *)tagser);
+         XrdSutPFEntry *cent = cache.Get(pfeRef, (const char *)tagser);
          if (!cent) {
             DEBUG("problems updating the cache");
             return -1;
          }
          // Add revocation date
          cent->mtime = XrdCryptosslASN1toUTC(X509_REVOKED_get0_revocationDate(rev));
+         // Set status OK
+         cent->status = kPFE_ok;
          // Release the string for the serial number
          OPENSSL_free(tagser);
+         pfeRef.UnLock(); // Prevent lock inversion (though it doesn't matter here)
       }
    }
-
-   // rehash the cache
-   pfeRef.UnLock(); // Prevent lock inversion (though it doesn't matter here)
-   cache.Rehash(1);
 
    return 0;
 }
@@ -573,11 +572,14 @@ bool XrdCryptosslX509Crl::IsRevoked(int serialnumber, int when)
    // Look into the cache
    XrdSutPFEntry *cent = cache.Get(pfeRef, (const char *)tagser);
    if (cent) {
-      // Check the revocation time
-      if (now > cent->mtime) {
-         DEBUG("certificate "<<tagser<<" has been revoked");
-         return 1;
+      if (cent->status == kPFE_ok) {
+         // Check the revocation time
+         if (now > cent->mtime) {
+            DEBUG("certificate "<<tagser<<" has been revoked");
+            return 1;
+         }
       }
+      pfeRef.UnLock();
    }
 
    // Certificate not revoked
@@ -609,11 +611,14 @@ bool XrdCryptosslX509Crl::IsRevoked(const char *sernum, int when)
    // Look into the cache
    XrdSutPFEntry *cent = cache.Get(pfeRef, (const char *)sernum);
    if (cent) {
-      // Check the revocation time
-      if (now > cent->mtime) {
-         DEBUG("certificate "<<sernum<<" has been revoked");
-         return 1;
+      if (cent->status == kPFE_ok) {
+         // Check the revocation time
+         if (now > cent->mtime) {
+            DEBUG("certificate "<<sernum<<" has been revoked");
+            return 1;
+         }
       }
+      pfeRef.UnLock();
    }
 
    // Certificate not revoked
