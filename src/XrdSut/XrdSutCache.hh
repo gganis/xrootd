@@ -87,7 +87,7 @@ private:
    bool            Delete(XrdSutPFEntry *pfEnt);
 
    static const int maxTries = 100; // Max time to try getting a lock
-   static const int retryMSW = 300; // Milliseconds to wait to get lock
+   static const int retryMSW = 30; // Milliseconds to wait to get lock
 
 public:
    XrdSutCache() { cachemx = -1; cachesz = 0; cachent = 0; lifetime = 300;
@@ -108,7 +108,7 @@ public:
    void           SetLifetime(int lifet = 300) { lifetime = lifet; }
 
    // Cache management
-   XrdSutPFEntry *Get(XrdSutCacheRef &urRef, const char *ID, bool force = 0);
+   XrdSutPFEntry *Get(XrdSutCacheRef &urRef, const char *ID, bool force = 1);
    XrdSutPFEntry *Get(XrdSutCacheRef &urRef, const char *ID, bool force, bool *wild);
    bool           Remove(const char *ID, int opt = 1);
    int            Trim(int lifet = 0);
