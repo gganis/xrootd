@@ -3373,12 +3373,10 @@ int XrdSecProtocolgsi::ServerDoCertreq(XrdSutBuffer *br, XrdSutBuffer **bm,
       return -1;
    }
 
-   pfeRef.UnLock(); // With only one CF, cent will not change and unlock should be safe
-                    // To be reviewed
-
    // Fill some relevant handshake variables
    sessionKsig = sessionCF->RSA(*((XrdCryptoRSA *)(cent->buf2.buf)));
    hs->Cbck = new XrdSutBucket(*((XrdSutBucket *)(cent->buf3.buf)));
+   pfeRef.UnLock(); // will not use cent any longer
 
    // Create a handshake cache 
    if (!(hs->Cref = new XrdSutPFEntry(hs->ID.c_str()))) {
