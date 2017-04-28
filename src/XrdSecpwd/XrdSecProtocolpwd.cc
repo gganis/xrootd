@@ -2429,7 +2429,7 @@ XrdSutBucket *XrdSecProtocolpwd::QueryCreds(XrdSutBuffer *bm,
       //
       // We may already have an entry in the cache
       bool wild = 0;
-      hs->Pent = cacheAlog.Get(pfeRef, wTag.c_str(), 0, &wild);
+      hs->Pent = cacheAlog.Get(pfeRef, wTag.c_str(), 1, &wild);
       // Retrieve pwd information if ok 
       if (hs->Pent && hs->Pent->buf1.buf) {
          if (hs->Pent->cnt == 0) {
@@ -3127,7 +3127,7 @@ int XrdSecProtocolpwd::ParseClientInput(XrdSutBuffer *br, XrdSutBuffer **bm,
       if (ptag) {
          sprintf(ptag,"%s:%s_%d",host.c_str(),srvid.c_str(),hs->CF->ID());
          bool wild = 0;
-         XrdSutPFEntry *ent = cacheSrvPuk.Get(pfeRef, (const char *)ptag, 0, &wild);
+         XrdSutPFEntry *ent = cacheSrvPuk.Get(pfeRef, (const char *)ptag, 1, &wild);
          if (ent) {
             if (ent && ent->status == kPFE_special) {
                // Initialize cipher
