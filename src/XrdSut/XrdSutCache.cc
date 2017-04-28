@@ -513,12 +513,13 @@ void XrdSutCache::Dump(const char *msg)
 
             char smt[20] = {0};
             XrdSutTimeString(ent->mtime,smt);
+            const char *nm = (ent->name) ? ent->name : "+++undef";
                
             nn++;
             PRINT("// #:"<<nn<<"  st:"<<ent->status<<" cn:"<<ent->cnt
                   <<"  buf:"<<ent->buf1.len<<","<<ent->buf2.len<<","
                   <<ent->buf3.len<<","<<ent->buf4.len<<" mod:"<<smt
-                  <<" name:"<<ent->name);
+                  <<" name:"<<nm);
          }
 
       }
