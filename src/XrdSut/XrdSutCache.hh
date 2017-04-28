@@ -44,7 +44,7 @@ class XrdSutCacheRef
 {
 public:
 
-inline void Lock(XrdSysMutex *Mutex)
+inline void Lock(XrdSysRecMutex *Mutex)
                 {if (mtx) {if (mtx != Mutex) mtx->UnLock();
                               else return;
                           }
@@ -52,7 +52,7 @@ inline void Lock(XrdSysMutex *Mutex)
                  mtx = Mutex;
                 };
 
-inline void Set(XrdSysMutex *Mutex)
+inline void Set(XrdSysRecMutex *Mutex)
                {if (mtx) {if (mtx != Mutex) mtx->UnLock();
                              else return;
                          }
@@ -65,7 +65,7 @@ inline void UnLock() {if (mtx) {mtx->UnLock(); mtx = 0;}}
 
            ~XrdSutCacheRef() {if (mtx) UnLock();}
 protected:
-XrdSysMutex *mtx;
+XrdSysRecMutex *mtx;
 };
 
 class XrdSutCache
@@ -83,6 +83,7 @@ private:
    bool            isinit;  // true if already initialized
 
    XrdSutPFEntry  *Get(const char *ID, bool *wild);
+   XrdSutPFEntry  *Get(XrdSutCacheRef &urRef, const char *ID, bool *wild);
    bool            Delete(XrdSutPFEntry *pfEnt);
 
    static const int maxTries = 100; // Max time to try getting a lock
@@ -107,10 +108,8 @@ public:
    void           SetLifetime(int lifet = 300) { lifetime = lifet; }
 
    // Cache management
-   XrdSutPFEntry *Get(int i) const { return (i<=cachemx) ? cachent[i] :
-                                                          (XrdSutPFEntry *)0; }
-   XrdSutPFEntry *Get(XrdSutCacheRef &urRef, const char *ID, bool *wild = 0);
-   XrdSutPFEntry *Add(XrdSutCacheRef &urRef, const char *ID, bool force = 0);
+   XrdSutPFEntry *Get(XrdSutCacheRef &urRef, const char *ID, bool force = 0);
+   XrdSutPFEntry *Get(XrdSutCacheRef &urRef, const char *ID, bool force, bool *wild);
    bool           Remove(const char *ID, int opt = 1);
    int            Trim(int lifet = 0);
 

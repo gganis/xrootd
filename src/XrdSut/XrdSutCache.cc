@@ -121,7 +121,7 @@ int XrdSutCache::Init(int capacity, bool lock)
 //__________________________________________________________________
 XrdSutPFEntry *XrdSutCache::Get(XrdSutCacheRef &urRef, const char *ID, bool *wild)
 {
-   // Retrieve an entry with ID, if any
+   // Get an entry with ID in cache; internal method
    // If wild is defined, search also best matching regular expression
    // with wildcard '*'; *wild = 0 will indicate exact match, 
    // *wild = 1 wild card compatibility match 
@@ -139,14 +139,6 @@ XrdSutPFEntry *XrdSutCache::Get(XrdSutCacheRef &urRef, const char *ID, bool *wil
    }
    if (wild) *wild = 0;
 
-   if (Rehash() != 0) {
-      DEBUG("problems rehashing");
-      return (XrdSutPFEntry *)0 ;
-   }
-
-   // Lock for reading
-   XrdSysRWLockHelper isg(rwlock, 1);
-
    // Find the entry and lock it. Repeat if we can get a lock.
    //
    for (i = 0; i < maxTries; i++)
@@ -156,13 +148,10 @@ XrdSutPFEntry *XrdSutCache::Get(XrdSutCacheRef &urRef, const char *ID, bool *wil
                 return pfEnt;
                }
            } else return pfEnt;
-        isg.UnLock();
+        // wait a bit
+        rwlock.UnLock();
         XrdSysTimer::Wait(retryMSW);
-        if (Rehash() != 0)
-           {DEBUG("problems rehashing");
-            return (XrdSutPFEntry *)0 ;
-           }
-        isg.Lock(&rwlock, 1);
+        rwlock.WriteLock();
        }
 
    // Nothing found
@@ -172,6 +161,7 @@ XrdSutPFEntry *XrdSutCache::Get(XrdSutCacheRef &urRef, const char *ID, bool *wil
 //__________________________________________________________________
 XrdSutPFEntry *XrdSutCache::Get(const char *ID, bool *wild)
 {
+   // Get an entry with ID in cache; internal method
 
    // Look in the hash first
    kXR_int32 *ie = hashtable.Find(ID);
@@ -204,9 +194,19 @@ XrdSutPFEntry *XrdSutCache::Get(const char *ID, bool *wild)
 }
 
 //__________________________________________________________________
-XrdSutPFEntry *XrdSutCache::Add(XrdSutCacheRef &urRef, const char *ID, bool force)
+XrdSutPFEntry *XrdSutCache::Get(XrdSutCacheRef &urRef, const char *ID, bool force)
 {
-   // Add an entry with ID in cache
+   // Get an entry with ID in cache, creating if not existing.
+   // Cache buffer is re-allocated with double size, if needed
+   // Hash is updated
+
+   return Get(urRef, ID, force, 0);
+}
+
+//__________________________________________________________________
+XrdSutPFEntry *XrdSutCache::Get(XrdSutCacheRef &urRef, const char *ID, bool force, bool *wild)
+{
+   // Get an entry with ID in cache, creating if not existing.
    // Cache buffer is re-allocated with double size, if needed
    // Hash is updated
    EPNAME("Cache::Add");
@@ -218,14 +218,14 @@ XrdSutPFEntry *XrdSutCache::Add(XrdSutCacheRef &urRef, const char *ID, bool forc
       return (XrdSutPFEntry *)0 ;
    }
 
-   //
-   // If an entry already exists, return it
-   XrdSutPFEntry *ent = Get(urRef, ID);
-   if (ent)
-      return ent;
-
    // Lock for writing
    XrdSysRWLockHelper isg(rwlock, 0);
+
+   //
+   // If an entry already exists, return it
+   XrdSutPFEntry *ent = Get(urRef, ID, wild);
+   if (ent)
+      return ent;
 
    //
    // Make sure there enough space for a new entry
