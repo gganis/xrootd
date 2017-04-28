@@ -87,7 +87,7 @@ private:
    bool            Delete(XrdSutPFEntry *pfEnt);
 
    static const int maxTries = 100; // Max time to try getting a lock
-   static const int retryMSW = 30; // Milliseconds to wait to get lock
+   static const int retryMSW = 3; // Milliseconds to wait to get lock
 
 public:
    XrdSutCache() { cachemx = -1; cachesz = 0; cachent = 0; lifetime = 300;
