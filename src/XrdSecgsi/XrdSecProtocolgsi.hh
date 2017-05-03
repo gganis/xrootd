@@ -40,6 +40,8 @@
 #include "XrdSec/XrdSecInterface.hh"
 #include "XrdSecgsi/XrdSecgsiTrace.hh"
 
+#include "XrdSut/XrdSutCacheEntry.hh"
+
 #include "XrdSut/XrdSutPFEntry.hh"
 #include "XrdSut/XrdSutPFile.hh"
 #include "XrdSut/XrdSutBuffer.hh"
@@ -214,6 +216,72 @@ public:
 class XrdSecProtocolgsi;
 class gsiHSVars;
 
+typedef bool (*XrdSecgsiCacheGet_t)(XrdSutCacheEntry *, void *);
+typedef struct {
+   long arg1;
+   long arg2;
+   long arg3;
+   long arg4;
+} XrdSecgsiCacheArg_t;
+
+class XrdSecgsiCache {
+public:
+   XrdSecgsiCache(int psize = 89, int size = 144, int load = 80) : table(psize, size, load) {}
+   virtual ~XrdSecgsiCache() {}
+
+
+   XrdSutCacheEntry *Get(const char *tag, bool &rdlock, XrdSecgsiCacheGet_t condition = 0, void *arg = 0) {
+      // Get or create the entry with 'tag'.
+      // New entries are always returned write-locked.
+      // The status of existing ones depends on condition: if condition is undefined or if applied
+      // to the entry with arguments 'arg' returns true, the entry is returned read-locked.
+      // Otherwise a write-lock is attempted on the entry: if unsuccessful (another thread is modifing
+      // the entry) the entry is read-locked.
+      // The status of the lock is returned in rdlock (true if read-locked).
+      rdlock = false;
+      bool oldentry = true;
+      XrdSutCacheEntry *cent = 0;
+      {  XrdSysMutexHelper raii(mtx);
+         if (!(cent = table.Find(tag))) {
+            cent = new XrdSutCacheEntry(tag);
+            table.Add(tag, cent);
+            cent->rwmtx.WriteLock();
+            oldentry = false;
+         }
+      }
+      if (oldentry) {
+        if (condition) {
+           if ((*condition)(cent, arg)) {
+              cent->rwmtx.ReadLock();
+              rdlock = true;
+           } else {
+              if (!(cent->rwmtx.CondWriteLock())) {
+                 cent->rwmtx.ReadLock();
+                 // Another thread has modified the entry
+                 if ((*condition)(cent, arg)) {
+                    rdlock = true;
+                 } else {
+                    // The entry is still bad: we fail
+                    cent->rwmtx.UnLock();
+                    return (XrdSutCacheEntry *)0;
+                 }
+              }
+           }
+        } else {
+           cent->rwmtx.ReadLock();
+           rdlock = true;
+        }
+      }
+      return cent;
+   }
+
+   inline int Size() { return table.Num(); }
+
+private:
+   XrdSysRecMutex         mtx;  // Protect access to table
+   XrdOucHash<XrdSutCacheEntry> table; // table with content
+};
+
 // From a proxy query
 typedef struct {
    X509Chain        *chain;
@@ -348,12 +416,11 @@ private:
    static XrdCryptoCipher *refcip[XrdCryptoMax];    // ref for session ciphers 
    //
    // Caches 
-   static XrdSutCache      cacheCA;   // Info about trusted CA's
-   static XrdSutCache      cacheCert; // Cache for available server certs
-   static XrdSutCache      cachePxy;  // Cache for client proxies
-   static XrdSutCache      cacheGMAP; // Cache for gridmap entries
-   static XrdSutCache      cacheGMAPFun; // Cache for entries mapped by GMAPFun
-   static XrdSutCache      cacheAuthzFun; // Cache for entities filled by AuthzFun
+   static XrdSecgsiCache   cacheCA;   // Info about trusted CA's
+   static XrdSecgsiCache   cacheCert; // Server certificates info cache
+   static XrdSecgsiCache   cachePxy;  // Client proxies cache; 
+   static XrdSecgsiCache   cacheGMAPFun; // Cache for entries mapped by GMAPFun
+   static XrdSecgsiCache   cacheAuthzFun; // Cache for entities filled by AuthzFun
    //
    // Services
    static XrdOucGMap      *servGMap;  // Grid mapping service 
@@ -422,7 +489,7 @@ private:
    static int     VerifyCRL(XrdCryptoX509Crl *crl, XrdCryptoX509 *xca, XrdOucString crldir,
                            XrdCryptoFactory *CF, int hashalg);
    bool           ServerCertNameOK(const char *subject, String &e);
-   static XrdSutPFEntry *GetSrvCertEnt(XrdSutCacheRef   &pfeRef,
+   static XrdSutCacheEntry *GetSrvCertEnt(XrdSutCERef   &gcref,
                                        XrdCryptoFactory *cf,
                                        time_t timestamp, String &cal);
 
@@ -431,7 +498,7 @@ private:
                                     XrdCryptoFactory *CF, int dwld, int &err);
 
    // Updating proxies
-   static int     QueryProxy(bool checkcache, XrdSutCache *cache, const char *tag,
+   static int     QueryProxy(bool checkcache, XrdSecgsiCache *cache, const char *tag,
                              XrdCryptoFactory *cf, time_t timestamp,
                              ProxyIn_t *pi, ProxyOut_t *po);
    static int     InitProxy(ProxyIn_t *pi, XrdCryptoFactory *cf,
