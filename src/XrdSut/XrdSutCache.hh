@@ -98,6 +98,7 @@ public:
    }
 
    inline int Size() { return table.Num(); }
+   inline void Reset() { return table.Purge(); }
 
 private:
    XrdSysRecMutex         mtx;  // Protect access to table
