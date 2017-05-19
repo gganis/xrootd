@@ -4279,9 +4279,20 @@ int XrdSecProtocolgsi::GetCA(const char *cahash,
    }
    ceref.Set(&(cent->rwmtx));
 
+   // Point to the content
    X509Chain *chain = (X509Chain *)(cent->buf1.buf);
    XrdCryptoX509Crl *crl = (XrdCryptoX509Crl *)(cent->buf2.buf);
-   // Are we done ?
+
+   // If invalid we fail
+   if (cent->status == kCE_inactive) {
+      // Cleanup and remove existing invalid entries
+      if (chain) stackCA.Del(chain);
+      if (crl) stackCRL.Del(crl);
+      PRINT("unable to get a valid entry from cache for " << tag);
+      return -1;
+   }
+
+   // Check if we are done
    if (rdlock) {
       // Save chain
       chain = (X509Chain *)(cent->buf1.buf);
@@ -4351,6 +4362,7 @@ int XrdSecProtocolgsi::GetCA(const char *cahash,
             // Add to the cache
             cent->buf1.buf = (char *)(chain);
             cent->buf1.len = 0;      // Just a flag
+            stackCA.Add(chain);
             if (crl) {
                cent->buf2.buf = (char *)(crl);
                cent->buf2.len = 0;      // Just a flag
@@ -4367,9 +4379,11 @@ int XrdSecProtocolgsi::GetCA(const char *cahash,
             }
          } else {
             SafeDelete(crl);
+            SafeDelete(chain);
             rc = -2;
          }
       } else {
+         SafeDelete(chain);
          NOTIFY("certificate not found or invalid (nci: "<<nci<<", CA: "<<
                (int)(verified)<<")");
          rc = -1;
