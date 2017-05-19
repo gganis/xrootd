@@ -642,7 +642,7 @@ char *XrdSecProtocolgsi::Init(gsiOptions opt, XrdOucErrInfo *erp)
       ceref.UnLock();
       //
       // We must have got at least one valid certificate
-      if (cacheCert.Size() <= 0) {
+      if (cacheCert.Num() <= 0) {
          ErrF(erp,kGSErrError,"no valid server certificate found");
          PRINT(erp->getErrText());
          return Parms;
