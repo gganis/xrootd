@@ -61,43 +61,54 @@ public:
       // the entry) the entry is read-locked.
       // The status of the lock is returned in rdlock (true if read-locked).
       rdlock = false;
-      bool oldentry = true;
       XrdSutCacheEntry *cent = 0;
-      {  XrdSysMutexHelper raii(mtx);
-         if (!(cent = table.Find(tag))) {
-            cent = new XrdSutCacheEntry(tag);
-            table.Add(tag, cent);
-            cent->rwmtx.WriteLock();
-            oldentry = false;
+
+      // Exclusive access to the table
+      XrdSysMutexHelper raii(mtx);
+
+      // Look for an entry
+      if (!(cent = table.Find(tag))) {
+         // If none, create a new one and write-lock for validation
+         cent = new XrdSutCacheEntry(tag);
+         if (cent->rwmtx.WriteLock()) {
+            // A problem occured: delete the entry and fail
+            delete cent;
+            return (XrdSutCacheEntry *)0;
          }
+         // Register it in the table
+         table.Add(tag, cent);
+         return cent;
       }
-      if (oldentry) {
-        if (condition) {
-           if ((*condition)(cent, arg)) {
-              cent->rwmtx.ReadLock();
-              rdlock = true;
-           } else {
-              if (!(cent->rwmtx.CondWriteLock())) {
-                 cent->rwmtx.ReadLock();
-                 // Another thread has modified the entry
-                 if ((*condition)(cent, arg)) {
-                    rdlock = true;
-                 } else {
-                    // The entry is still bad: we fail
-                    cent->rwmtx.UnLock();
-                    return (XrdSutCacheEntry *)0;
-                 }
-              }
-           }
-        } else {
-           cent->rwmtx.ReadLock();
-           rdlock = true;
-        }
+
+      // We found an existing entry:
+      // lock until we get the ability to read (another thread may be valudating it)
+      if (cent->rwmtx.ReadLock()) {
+         // A problem occured: fail (do not touch the entry)
+         return (XrdSutCacheEntry *)0;
       }
+
+      // Check-it by apply the condition, if required
+      if (condition) {
+         if ((*condition)(cent, arg)) {
+            // Good and valid entry
+            rdlock = true;
+         } else {
+            // Invalid entry: unlock and write-lock to be able to validate it
+            cent->rwmtx.UnLock();
+            if (cent->rwmtx.WriteLock()) {
+               // A problem occured: fail (do not touch the entry)
+               return (XrdSutCacheEntry *)0;
+            }
+          }
+      } else {
+          // Good and valid entry
+          rdlock = true;
+      }
+      // We are done: return read-locked so we can use it until we need it
       return cent;
    }
 
-   inline int Size() { return table.Num(); }
+   inline int Num() { return table.Num(); }
    inline void Reset() { return table.Purge(); }
 
 private:
