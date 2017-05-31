@@ -66,6 +66,9 @@ static const char *X509ChainErrStr[] = {
 XrdCryptoX509Chain::XrdCryptoX509Chain(XrdCryptoX509 *c)
 {
    // Constructor
+   EPNAME("X509Chain::Cert_Ctor");
+
+   PRINT("creating ... "<< (void *)this)
 
    previous = 0;
    current = 0;
@@ -104,6 +107,9 @@ XrdCryptoX509Chain::XrdCryptoX509Chain(XrdCryptoX509 *c)
 XrdCryptoX509Chain::XrdCryptoX509Chain(XrdCryptoX509Chain *ch)
 {
    // Copy constructor
+   EPNAME("X509Chain::Copy_Ctor");
+
+   PRINT("creating ... "<< (void *)this)
 
    previous = 0;
    current = 0;
@@ -137,6 +143,9 @@ XrdCryptoX509Chain::XrdCryptoX509Chain(XrdCryptoX509Chain *ch)
 XrdCryptoX509Chain::~XrdCryptoX509Chain()
 {
    // Destructor
+   EPNAME("X509Chain::Dtor");
+
+   PRINT("deleting ... "<< (void *)this)
 
    XrdCryptoX509ChainNode *n = 0;
    XrdCryptoX509ChainNode *c = begin;
