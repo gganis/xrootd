@@ -564,8 +564,7 @@ bool XrdCryptosslX509Crl::IsRevoked(int serialnumber, int when)
    sprintf(tagser,"%x",serialnumber);
 
    // Look into the cache
-   bool rdlock = false;
-   XrdSutCacheEntry *cent = cache.Get((const char *)tagser, rdlock);
+   XrdSutCacheEntry *cent = cache.Get((const char *)tagser);
    if (cent && cent->status == kCE_ok) {
       // Check the revocation time
       if (now > cent->mtime) {
@@ -602,7 +601,6 @@ bool XrdCryptosslX509Crl::IsRevoked(const char *sernum, int when)
    }
 
    // Look into the cache
-   bool rdlock = false;
    XrdSutCacheEntry *cent = cache.Get((const char *)sernum);
    if (cent && cent->status == kCE_ok) {
       // Check the revocation time
