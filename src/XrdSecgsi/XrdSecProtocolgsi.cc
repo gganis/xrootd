@@ -4219,10 +4219,9 @@ static bool GetCACheck(XrdSutCacheEntry *e, void *a) {
    }
    if (goodca) {
       XrdCryptoX509Crl *crl = (XrdCryptoX509Crl *)(e->buf2.buf);
-      bool goodcrl = (crl) ? 1 : 0;
-      if (goodcrl && crl_check >= 3 && crl->IsExpired()) goodcrl = 0;
-      if (goodcrl && crl_refresh > 0 && ((ts_ref - e->mtime) > crl_refresh)) goodcrl = 0;
-      // If the CA is not good, we reload the CRL in any case
+      bool goodcrl = 1;
+      if ((crl_check == 2 && !crl) || (crl_check == 3 && crl->IsExpired())) goodcrl = 0;
+      if (crl_refresh > 0 && ((ts_ref - e->mtime) > crl_refresh)) goodcrl = 0;
       if (goodcrl) {
          return true;
       } else if (crl) {
