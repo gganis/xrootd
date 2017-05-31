@@ -4219,7 +4219,18 @@ static bool GetCACheck(XrdSutCacheEntry *e, void *a) {
       if ((crl_check == 2 && !crl) || (crl_check == 3 && crl->IsExpired())) goodcrl = 0;
       if (crl_refresh > 0 && ((ts_ref - e->mtime) > crl_refresh)) goodcrl = 0;
       if (goodcrl) {
+#if 0
          return true;
+#else
+         int rd = 0;
+         static unsigned int sd = 0;
+         if (sd == 0) {
+            sd = (unsigned int)ts_ref;
+            srand(sd);
+         }
+         if (((rd = rand_r(&sd)) < 0.80 * RAND_MAX))
+            return true;
+#endif
       } else if (crl) {
          PRINT("CRL entry for '"<<e->name<<"' needs refreshing: clean the related entry cache first ("<<e<<")");
       }
