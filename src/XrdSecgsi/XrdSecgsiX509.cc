@@ -62,6 +62,12 @@
 #include "XrdSecgsi/XrdSecgsiTrace.hh"
 
 #define PRT(x) {cerr <<x <<endl;}
+#define SafeDelete(x) { if (x) delete x ; x = 0; }
+#define SafeDelArray(x) { if (x) delete [] x ; x = 0; }
+#define SafeFree(x) { if (x) free(x) ; x = 0; }
+
+typedef XrdOucString String;
+typedef XrdCryptogsiX509Chain X509Chain;
 
 //
 // enum
@@ -87,6 +93,7 @@ void Menu();
 int  ParseArguments(int argc, char **argv);
 bool CheckOption(XrdOucString opt, const char *ref, int &ival);
 void Display(XrdCryptoX509 *xp);
+int  VerifyChain(X509Chain *xc);
 
 //
 // Globals
@@ -113,12 +120,8 @@ XrdOucTrace *gsiTrace = 0;
 int main( int argc, char **argv )
 {
    // Test implemented functionality
-   int secValid = 0;
-   XrdProxyOpt_t pxopt;
    XrdCryptogsiX509Chain *cPXp = 0;
    XrdCryptoX509 *xPXp = 0, *xPXPp = 0;
-   XrdCryptoRSA *kPXp = 0;
-   int prc = 0;
    int nci = 0;
    int exitrc = 0;
 
@@ -126,7 +129,6 @@ int main( int argc, char **argv )
    if (ParseArguments(argc,argv)) {
       exit(1);
    }
-         }
 
    //
    // Initiate error logging and tracing
@@ -221,13 +223,8 @@ int main( int argc, char **argv )
                 ": found none!");
          break;
       }
-      // The proxy is the first certificate
-      xPXp = cPXp->Begin();
-      if (xPXp) {
-         Display(xPXp);
-      } else {
-         PRT( ": proxy certificate not found");
-      }
+      // Verify
+      PRT( ": chain verified? " << VerifyChain(cPXp) );
       break;
    default:
       //
@@ -236,6 +233,99 @@ int main( int argc, char **argv )
    }
 
    exit(exitrc);
+}
+
+XrdOucString GetCApath(const char *cahash)
+{
+   // Look in the paths defined by CAdir for the certificate file related to
+   // 'cahash', in the form <CAdir_entry>/<cahash>.0
+
+   XrdOucString path;
+   XrdOucString ent;
+   int from = 0;
+   while ((from = CAdir.tokenize(ent, from, ',')) != -1) {
+      if (ent.length() > 0) {
+         path = ent;
+         if (!path.endswith('/'))
+            path += "/";
+         path += cahash;
+         if (!path.endswith(".0"))
+            path += ".0";
+         if (!access(path.c_str(), R_OK))
+            break;
+      }
+      path = "";
+   }
+
+   // Done
+   return path;
+}
+
+// Verify the chain above 'xc'
+int VerifyChain(X509Chain *cca)
+{
+   // The proxy is the first certificate
+   XrdCryptoX509 *xc = cca->Begin();
+   if (!xc) {
+      PRT( ": no certificate found in file");
+      return 0;
+   }
+     
+   int verified = 1;
+   // Is it self-signed ?
+   bool self = (!strcmp(xc->IssuerHash(), xc->SubjectHash())) ? 1 : 0;
+   if (!self) {
+      XrdOucString inam;
+      // We are requested to verify it
+      bool notdone = 1;
+      // We need to load the issuer(s) CA(s)
+      XrdCryptoX509 *xd = xc;
+      while (notdone) {
+      X509Chain *ch = 0;
+      int ncis = -1;
+      for (int ha = 0; ha < 2; ha++) {
+         inam = GetCApath(xd->IssuerHash(ha));
+         if (inam.length() <= 0) continue;
+         ch = new X509Chain();
+         ncis = (*ParseFile)(inam.c_str(), ch);
+         if (ncis >= 1) break;
+         SafeDelete(ch);
+      }
+      if (ncis < 1) break;
+      XrdCryptoX509 *xi = ch->Begin();
+      while (xi) {
+         if (!strcmp(xd->IssuerHash(), xi->SubjectHash()))
+            break;
+         xi = ch->Next();
+      }
+      if (xi) {
+         // Add the certificate to the requested CA chain
+         ch->Remove(xi);
+         cca->PutInFront(xi);
+         SafeDelete(ch);
+         // We may be over
+         if (!strcmp(xi->IssuerHash(), xi->SubjectHash())) {
+            notdone = 0;
+            break;
+         } else {
+            // This becomes the daughter
+            xd = xi;
+         }
+      } else {
+         break;
+      }
+      if (!notdone) {
+         // Verify the chain
+         X509Chain::EX509ChainErr e;
+         x509ChainVerifyOpt_t vopt = {kOptsCheckSubCA, 0, -1, 0};
+         if (!(verified = cca->Verify(e, &vopt)))
+            PRT("CA certificate not self-signed: verification failed ("<<xc->SubjectHash()<<")");
+         } else {
+            PRT("CA certificate not self-signed: cannot verify integrity ("<<xc->SubjectHash()<<")");
+         }
+      }
+   }
+   return verified;
 }
 
 int ParseArguments(int argc, char **argv)
@@ -269,10 +359,6 @@ int ParseArguments(int argc, char **argv)
             Mode = kM_help;
          } else if (CheckOption(opt,"debug",ival)) {
             Debug = ival;
-         } else if (CheckOption(opt,"e",ival)) {
-            Exists = 1;
-         } else if (CheckOption(opt,"exists",ival)) {
-            Exists = 1;
          } else if (CheckOption(opt,"f",ival)) {
             --argc;
             ++argv;
@@ -321,7 +407,7 @@ int ParseArguments(int argc, char **argv)
                argc++;
                argv--;
             }
-         } else if (CheckOption(opt,"extensions",ival)) {
+         } else if (CheckOption(opt,"e",ival) || CheckOption(opt,"extensions",ival)) {
             DumpExtensions = 1;
          } else {
             PRT("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
@@ -342,9 +428,7 @@ int ParseArguments(int argc, char **argv)
          } else if (CheckOption(opt,"help",ival)) {
             Mode = kM_help;
          } else {
-            PRT("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-            PRT("+ Ignoring unrecognized keyword mode: "<<opt.c_str());
-            PRT("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+            PXcert = opt;
          }
       }
       --argc;
@@ -365,7 +449,6 @@ int ParseArguments(int argc, char **argv)
 
    //
    // we may need later
-   struct passwd *pw = 0;
    XrdSysPwd thePwd;
 
    //
@@ -384,11 +467,9 @@ int ParseArguments(int argc, char **argv)
    struct stat st;
    if (stat(PXcert.c_str(),&st) != 0) {
       // Path exists but we cannot access it - exit
-      if (!Exists) {
-         PRT("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-         PRT("+ file: "<<PXcert.c_str()<<" not found");
-         PRT("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-      }
+      PRT("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+      PRT("+ file: "<<PXcert.c_str()<<" cannot be accessed (errno: " << (int) errno << ")");
+      PRT("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
       return 1;
    }
 
