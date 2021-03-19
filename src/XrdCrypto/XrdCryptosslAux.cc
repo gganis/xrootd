@@ -432,7 +432,7 @@ int XrdCryptosslX509ParseStack(XrdTlsPeerCerts* pc, XrdCryptoX509Chain *chain)
 
 //____________________________________________________________________________
 int XrdCryptosslX509ParseFile(const char *fname,
-                              XrdCryptoX509Chain *chain)
+                              XrdCryptoX509Chain *chain, const char *fkey)
 {
    // Parse content of file 'fname' and add X509 certificates to
    // chain (which must be initialized by the caller).
@@ -482,7 +482,19 @@ int XrdCryptosslX509ParseFile(const char *fname,
    // If we found something, and we are asked to extract a key,
    // rewind and look for it
    if (nci) {
-      rewind(fcer);
+      if (!fkey) {
+         // Look in the same file, after rewinding
+         rewind(fcer);
+      } else {
+         // We can close the file now
+         fclose(fcer);
+	 // Open key file
+         fcer = fopen(fkey, "r");
+         if (!fcer) {
+           DEBUG("unable to open key file (errno: "<<errno<<")");
+           return nci;
+         }	 
+      }
       RSA  *rsap = 0;
       if (!PEM_read_RSAPrivateKey(fcer, &rsap, 0, 0)) {
          DEBUG("no RSA private key found in file "<<fname);

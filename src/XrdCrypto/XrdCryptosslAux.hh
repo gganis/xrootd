@@ -60,7 +60,7 @@ XrdSutBucket *XrdCryptosslX509ExportChain(XrdCryptoX509Chain *c, bool key = 0);
 // chain export to file (proxy file creation)
 int XrdCryptosslX509ChainToFile(XrdCryptoX509Chain *c, const char *fn);
 // certificates from file parsing
-int XrdCryptosslX509ParseFile(const char *fname, XrdCryptoX509Chain *c);
+int XrdCryptosslX509ParseFile(const char *fname, XrdCryptoX509Chain *c, const char *fkey = 0);
 // certificates from bucket parsing
 int XrdCryptosslX509ParseBucket(XrdSutBucket *b, XrdCryptoX509Chain *c);
 // certificates from STACK_OF(X509*)
